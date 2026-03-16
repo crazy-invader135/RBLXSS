@@ -1,10 +1,9 @@
 const express = require('express');
 const app = express();
 app.use(express.json());
-app.use(express.text());
 
-const VERSION = "2.0.2"; 
-let currentScript = "print('System Online')"; // Valid initial script
+const VERSION = "3.0.0 (Presets)"; 
+let currentCommand = "none";
 let targetUser = "All";
 let scriptId = Date.now(); 
 
@@ -12,37 +11,48 @@ app.get('/', (req, res) => {
     res.send(`
         <html>
         <head>
-            <title>Executor v${VERSION}</title>
+            <title>Preset Executor v${VERSION}</title>
             <style>
-                body { font-family: sans-serif; background: #121212; color: white; padding: 40px; }
-                textarea { width: 100%; height: 300px; background: #1e1e1e; color: #00ff41; border: 1px solid #444; padding: 10px; font-family: monospace; }
-                .controls { margin-top: 20px; background: #1e1e1e; padding: 15px; border-radius: 8px; }
-                button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
-                input { background: #2d2d2d; color: white; border: 1px solid #555; padding: 8px; }
+                body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; padding: 40px; text-align: center; }
+                .container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+                select, input { width: 100%; padding: 12px; margin: 10px 0; background: #2d2d2d; color: white; border: 1px solid #444; border-radius: 6px; }
+                button { width: 100%; padding: 15px; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+                button:hover { background: #0056b3; }
+                .status { color: #888; margin-top: 15px; font-size: 0.9em; }
             </style>
         </head>
         <body>
-            <h2>Cloud Executor v${VERSION}</h2>
-            <textarea id="code" placeholder="print('Hello!')"></textarea>
-            <div class="controls">
-                <select id="targetType" onchange="document.getElementById('username').style.display = this.value === 'Specific' ? 'inline' : 'none'">
-                    <option value="All">Global</option>
-                    <option value="Specific">Specific User</option>
-                </select>
-                <input type="text" id="username" placeholder="Username" style="display:none;">
-                <button onclick="send()">Execute</button>
+            <div class="container">
+                <h2>Preset Executor</h2>
+                <label>Select Command:</label>
+                <select id="cmd">
+                    <option value="none">-- Select a Preset --</option>
+                    <option value="kill">Kill Player(s)</option>
+                    <option value="freeze">Freeze Player(s)</option>
+                    <option value="unfreeze">Unfreeze Player(s)</option>
+                    <option value="kick">Kick Player(s)</option>
+                    <option value="gui_reload">Reload Main GUI</option>
+                    </select>
+
+                <label>Target:</label>
+                <input type="text" id="user" value="All" placeholder="Username or 'All'">
+
+                <button onclick="send()">Execute Command</button>
+                <div id="status" class="status">Ready</div>
             </div>
-            <p id="status"></p>
+
             <script>
                 async function send() {
-                    const code = document.getElementById('code').value;
-                    const target = document.getElementById('targetType').value === 'All' ? 'All' : document.getElementById('username').value;
+                    const cmd = document.getElementById('cmd').value;
+                    const target = document.getElementById('user').value;
+                    if(cmd === "none") return alert("Please select a command!");
+                    
                     await fetch('/set-script', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({code, target})
+                        body: JSON.stringify({code: cmd, target: target})
                     });
-                    document.getElementById('status').innerText = "Sent to " + target;
+                    document.getElementById('status').innerText = "Sent: " + cmd + " -> " + target;
                 }
             </script>
         </body>
@@ -51,14 +61,14 @@ app.get('/', (req, res) => {
 });
 
 app.post('/set-script', (req, res) => {
-    currentScript = req.body.code;
+    currentCommand = req.body.code;
     targetUser = req.body.target;
     scriptId = Date.now(); 
     res.send("OK");
 });
 
 app.get('/get-script', (req, res) => {
-    res.json({ code: currentScript, target: targetUser, id: scriptId });
+    res.json({ code: currentCommand, target: targetUser, id: scriptId });
 });
 
 app.listen(process.env.PORT || 3000);
