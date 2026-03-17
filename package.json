@@ -1,12 +1,16 @@
 {
-  "name": "roblox-executor",
+  "name": "roblox-public-executor",
   "version": "1.0.0",
+  "description": "A public API for serving Roblox Lua scripts from Pastebin",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "axios": "^1.6.0",
     "express": "^4.18.2"
   },
-  "scripts": {
-    "start": "node server.js"
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
