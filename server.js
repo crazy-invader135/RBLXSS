@@ -40,9 +40,31 @@ app.get('/get-command', async (req, res) => {
     }
 });
 
+// 1. Status Check (Visit your Render URL in a browser to see this)
+app.get('/', (req, res) => {
+    res.send("Server is officially online and working! 🚀");
+});
+
+// 2. The Roblox Request Handler
+app.get('/get-command', async (req, res) => {
+    const presetName = req.query.preset;
+    const targetUrl = presets[presetName];
+
+    if (targetUrl) {
+        try {
+            const response = await axios.get(targetUrl);
+            res.set('Content-Type', 'text/plain');
+            res.send(response.data);
+        } catch (error) {
+            console.error("Error fetching from Pastebin:", error.message);
+            res.status(500).send("-- Error: Could not reach Pastebin/External Source");
+        }
+    } else {
+        res.status(404).send("-- Error: Preset name '" + presetName + "' not found in config.");
+    }
+});
+
+// Keep this at the VERY BOTTOM of the file
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-app.get('/', (req, res) => {
-    res.send("Server is officially online and working!");
-});
 });
