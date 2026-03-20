@@ -3,76 +3,62 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 let commandQueue = [];
+let logs = [];
+let lastCheckIn = "Never";
+
+function addLog(msg) {
+    logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    if (logs.length > 20) logs.pop();
+}
 
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
-        <html lang="en">
+        <html>
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Roblox Executor Dashboard</title>
+            <title>Master Executor</title>
             <style>
-                :root { --bg: #0b0e14; --card-bg: #161b22; --text: #adbac7; --accent: #58a6ff; --border: #30363d; }
-                body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-                
-                .header-section { text-align: center; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px; width: 100%; max-width: 600px; }
-                
-                /* WHITELIST INPUT STYLING */
-                .whitelist-box { background: #1c2128; padding: 15px; border-radius: 8px; border: 1px solid var(--accent); margin-top: 10px; }
-                input { background: #0d1117; border: 1px solid var(--border); color: white; padding: 8px; border-radius: 4px; outline: none; }
-                input:focus { border-color: var(--accent); }
-                .current-user { font-weight: bold; color: var(--accent); margin-left: 10px; }
-
-                .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 1000px; }
-                .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: 0.2s; cursor: pointer; display: flex; flex-direction: column; }
-                .card:hover { transform: translateY(-5px); border-color: var(--accent); }
-                .card-image { width: 100%; height: 120px; background-size: cover; background-position: center; background-color: #21262d; }
-                .card-content { padding: 15px; text-align: center; }
-                .card-title { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0; }
-                .card-description { font-size: 13px; color: #768390; margin-top: 5px; }
+                body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+                .status-bar { border: 1px solid #00ff41; padding: 10px; width: 450px; margin-bottom: 20px; text-align: center; }
+                input { background: #000; border: 1px dashed #00ff41; color: #00ff41; padding: 10px; text-align: center; margin-bottom: 20px; }
+                .btn-group { display: flex; gap: 15px; }
+                .btn { border: 1px solid #00ff41; padding: 15px; cursor: pointer; font-weight: bold; }
+                .btn:hover { background: #003b11; box-shadow: 0 0 10px #00ff41; }
+                .logs { width: 100%; max-width: 600px; height: 300px; border: 1px solid #333; margin-top: 20px; padding: 10px; font-size: 12px; overflow-y: auto; background: #000; }
             </style>
         </head>
         <body>
-            <div class="header-section">
-                <h1>Remote Control</h1>
-                <div class="whitelist-box">
-                    <label>Whitelist Target:</label>
-                    <input type="text" id="usernameInput" placeholder="Enter Roblox Username..." oninput="updateUser()">
-                    <p>Currently Whitelisted: <span id="displayUser" class="current-user">None</span></p>
-                </div>
+            <div class="status-bar">
+                STATUS: <span id="status">OFFLINE</span> | LAST HB: <span id="hb">None</span>
             </div>
-            
-            <div class="grid">
-                <div class="card" onclick="send('Test1')">
-                    <div class="card-image" style="background-image: url('https://tr.rbxcdn.com/30day-pa0903328575089f9353974d61993245/420/420/Image/Png');"></div>
-                    <div class="card-content"><p class="card-title">test1</p><p class="card-description">Simple visual change.</p></div>
-                </div>
 
-                <div class="card" onclick="send('Test')">
-                    <div class="card-image" style="background-image: url('https://tr.rbxcdn.com/30day-87612f0088922c0989f635038753239a/420/420/Image/Png');"></div>
-                    <div class="card-content"><p class="card-title">Server Nuke</p><p class="card-description">Uses require() for your script.</p></div>
-                </div>
+            TARGET USER: <input type="text" id="userInput" placeholder="Username Here">
+
+            <div class="btn-group">
+                <div class="btn" onclick="send('Test1')">RUN PASTEBIN</div>
+                <div class="btn" onclick="send('TestGUI')">TEST CONNECTION</div>
             </div>
+
+            <div id="logs" class="logs">Waiting for logs...</div>
 
             <script>
-                // Load from browser memory on startup
-                const savedUser = localStorage.getItem('robloxWhitelist') || "None";
-                document.getElementById('usernameInput').value = savedUser === "None" ? "" : savedUser;
-                document.getElementById('displayUser').innerText = savedUser;
-
-                function updateUser() {
-                    const val = document.getElementById('usernameInput').value || "None";
-                    localStorage.setItem('robloxWhitelist', val);
-                    document.getElementById('displayUser').innerText = val;
-                }
-
                 function send(id) {
-                    const user = localStorage.getItem('robloxWhitelist') || "None";
-                    // Send both the Script ID and the User Name
-                    fetch(\`/send?id=\${id}&target=\${user}\`)
-                        .then(() => console.log("Sent: " + id + " for " + user));
+                    const user = document.getElementById('userInput').value;
+                    if (!user || user === "") {
+                        alert("Enter a username first!");
+                        return;
+                    }
+                    // This sends the ID and the TARGET to the server
+                    fetch(\`/send?id=\${id}&target=\${user}\`);
                 }
+
+                setInterval(() => {
+                    fetch('/getLogs').then(r => r.json()).then(data => {
+                        document.getElementById('hb').innerText = data.lastCheck;
+                        document.getElementById('status').innerText = "ONLINE";
+                        document.getElementById('logs').innerHTML = data.logs.map(l => \`<div>\${l}</div>\`).join('');
+                    }).catch(() => document.getElementById('status').innerText = "OFFLINE");
+                }, 2000);
             </script>
         </body>
         </html>
@@ -81,16 +67,21 @@ app.get('/', (req, res) => {
 
 app.get('/send', (req, res) => {
     const { id, target } = req.query;
-    if (id) {
-        commandQueue.push({ id, target });
-        res.send("Queued");
-    } else {
-        res.status(400).send("No ID");
-    }
+    commandQueue.push({ id, target });
+    addLog(`WEB: Queued ${id} for ${target}`);
+    res.send("OK");
 });
 
 app.get('/getCommand', (req, res) => {
-    res.json(commandQueue.shift() || { id: null });
+    lastCheckIn = new Date().toLocaleTimeString();
+    if (commandQueue.length > 0) {
+        const c = commandQueue.shift();
+        addLog(`RBX: Sent ${c.id} to game`);
+        res.json(c);
+    } else {
+        res.json({ id: null });
+    }
 });
 
-app.listen(PORT, () => console.log("UI Server running..."));
+app.get('/getLogs', (req, res) => res.json({ logs, lastCheck: lastCheckIn }));
+app.listen(PORT, () => console.log("Web Server Live"));
