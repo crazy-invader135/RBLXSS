@@ -1,70 +1,66 @@
 const express = require('express');
-const axios = require('axios');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// This stores the current command and who it is meant for
-let activeCommand = {
-    script: null,
-    targetPlayer: null, // Username of the person to "target"
-    expiry: 0
-};
+let commandQueue = [];
 
-const presets = {
-    "kill_target": "https://pastebin.com/raw/example1",
-    "fling_target": "https://pastebin.com/raw/example2"
-};
-
+// Simple HTML Dashboard
 app.get('/', (req, res) => {
-    let buttons = Object.keys(presets).map(name => 
-        `<button onclick="send('${name}')" style="padding:10px;margin:5px;">Execute ${name}</button>`
-    ).join('');
-
     res.send(`
+        <!DOCTYPE html>
         <html>
-            <body style="font-family:sans-serif; text-align:center;">
-                <h1>Command Center</h1>
-                <input type="text" id="target" placeholder="Target Username" style="padding:10px;"><br><br>
-                ${buttons}
-                <p id="status">Waiting...</p>
-                <script>
-                    function send(name) {
-                        const target = document.getElementById('target').value;
-                        if(!target) return alert("Enter a target username!");
-                        fetch(\`/set-command?preset=\${name}&target=\${target}\`)
-                            .then(() => document.getElementById('status').innerText = "Sent " + name + " to " + target);
-                    }
-                </script>
-            </body>
+        <head>
+            <title>Roblox Control Panel</title>
+            <style>
+                body { font-family: sans-serif; text-align: center; padding: 50px; background: #121212; color: white; }
+                button { padding: 15px 25px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; transition: 0.3s; }
+                .btn-spawn { background: #4CAF50; color: white; }
+                .btn-msg { background: #2196F3; color: white; }
+                .btn-kill { background: #f44336; color: white; }
+                button:hover { opacity: 0.8; transform: scale(1.05); }
+            </style>
+        </head>
+        <body>
+            <h1>Roblox Command Center</h1>
+            <p>Click a button to send a command to the game.</p>
+            <button class="btn-spawn" onclick="send('SpawnPart')">Spawn Part</button>
+            <button class="btn-msg" onclick="send('ShowMessage')">Show Message</button>
+            <button class="btn-kill" onclick="send('KillPlayers')">Kill All</button>
+
+            <script>
+                function send(id) {
+                    fetch('/send?id=' + id)
+                        .then(response => response.text())
+                        .then(data => alert(data));
+                }
+            </script>
+        </body>
         </html>
     `);
 });
 
-app.get('/set-command', async (req, res) => {
-    const { preset, target } = req.query;
-    if (presets[preset]) {
-        try {
-            const response = await axios.get(presets[preset]);
-            activeCommand = {
-                script: response.data,
-                targetPlayer: target.toLowerCase(),
-                expiry: Date.now() + 30000 // Command stays active for 30 seconds
-            };
-            res.send("Command Set");
-        } catch (e) { res.status(500).send("Source Error"); }
-    }
-});
-
-// Roblox calls this. It sends the target name so the server knows if it should run it.
-app.get('/check', (req, res) => {
-    if (activeCommand.script && Date.now() < activeCommand.expiry) {
-        res.json({
-            script: activeCommand.script,
-            target: activeCommand.targetPlayer
-        });
+// Endpoint to add commands to the queue
+app.get('/send', (req, res) => {
+    const commandId = req.query.id;
+    if (commandId) {
+        commandQueue.push(commandId);
+        console.log(`Queued: ${commandId}`);
+        res.send(`Command ${commandId} sent!`);
     } else {
-        res.json({ script: null });
+        res.status(400).send("No ID provided");
     }
 });
 
-app.listen(PORT, () => console.log("Server Live"));
+// Endpoint for Roblox to poll
+app.get('/getCommand', (req, res) => {
+    if (commandQueue.length > 0) {
+        res.json({ id: commandQueue.shift() });
+    } else {
+        res.json({ id: null });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
