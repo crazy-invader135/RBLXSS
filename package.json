@@ -1,7 +1,7 @@
 {
-  "name": "roblox-web-bridge",
+  "name": "roblox-control-panel",
   "version": "1.0.0",
-  "description": "A bridge between a website and Roblox using Node.js",
+  "description": "Remote Dashboard for Roblox",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
